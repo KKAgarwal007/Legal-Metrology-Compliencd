@@ -1,0 +1,17 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Uploads
+uploads/
+data/
+
+# Virtual environment
+venv/
+.venv/
+env/
