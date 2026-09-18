@@ -243,7 +243,15 @@ export default function ProcessingPage() {
             </div>
             <div>
               <Button
-                onClick={() => navigate(`/inspections/${id || 'insp-001'}`)}
+                onClick={() =>
+                  navigate(`/inspections/${id || 'insp-001'}`, {
+                    state: {
+                      title: state?.title,
+                      category: state?.category,
+                      imagePreviews: state?.imagePreviews,
+                    },
+                  })
+                }
                 className="bg-[#1e3a5f] hover:bg-[#153e75] text-white px-8 py-3 text-base shadow-lg cursor-pointer flex items-center gap-2"
               >
                 Inspect Results &amp; Evidence <ArrowRight className="w-5 h-5" />

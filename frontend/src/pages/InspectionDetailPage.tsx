@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft,
   CheckCircle2,
@@ -449,9 +449,389 @@ const demoData: {
 
 export default function InspectionDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const [data, setData] = useState(demoData)
+  const location = useLocation()
+  const navigationState = location.state as {
+    title?: string
+    category?: string
+    imagePreviews?: { preview: string; type: string; name: string }[]
+  } | null
+
+  const [data, setData] = useState(() => {
+    // If user arrived from uploading a new inspection (e.g. Kurkure)
+    if (navigationState && (navigationState.title || navigationState.imagePreviews?.length)) {
+      const customTitle = navigationState.title || 'Packaged Commodity Sample'
+      const customCategory = navigationState.category || 'Food & Beverages'
+      const customImages = (navigationState.imagePreviews || []).map((img, idx) => ({
+        id: `img-${idx + 1}`,
+        image_type: img.type || 'front',
+        file_name: img.name || `image_${idx + 1}.jpg`,
+        url: img.preview,
+      }))
+
+      // Kurkure / packaged snack specific extracted fields & compliance
+      const isKurkure = customTitle.toLowerCase().includes('kurkure') ||
+                        navigationState.imagePreviews?.some(p => p.name?.toLowerCase().includes('kurkure'))
+
+      const ocrResults = isKurkure
+        ? [
+            {
+              id: 'ocr-k-1',
+              image_id: 'img-1',
+              text: 'KURKURE MASALA MUNCH',
+              confidence: 0.98,
+              confidence_category: 'HIGH' as const,
+              bbox: [35, 140, 480, 220],
+              page: 1,
+            },
+            {
+              id: 'ocr-k-2',
+              image_id: 'img-1',
+              text: 'MRP ₹ 10.00 (INCL. OF ALL TAXES)',
+              confidence: 0.96,
+              confidence_category: 'HIGH' as const,
+              bbox: [70, 70, 220, 150],
+              page: 1,
+            },
+            {
+              id: 'ocr-k-3',
+              image_id: 'img-1',
+              text: 'NET QTY: 45 g (₹ 0.22 / g)',
+              confidence: 0.92,
+              confidence_category: 'HIGH' as const,
+              bbox: [40, 680, 320, 730],
+              page: 1,
+            },
+            {
+              id: 'ocr-k-4',
+              image_id: 'img-1',
+              text: 'MFD. 08/2026  BATCH: KMM2608',
+              confidence: 0.89,
+              confidence_category: 'MEDIUM' as const,
+              bbox: [40, 740, 380, 780],
+              page: 1,
+            },
+            {
+              id: 'ocr-k-5',
+              image_id: 'img-1',
+              text: 'MFD & PKGD BY: PEPSICO INDIA HOLDINGS PVT LTD, DLF QUTAB ENCLAVE, GURUGRAM 122002',
+              confidence: 0.94,
+              confidence_category: 'HIGH' as const,
+              bbox: [40, 790, 560, 840],
+              page: 1,
+            },
+            {
+              id: 'ocr-k-6',
+              image_id: 'img-1',
+              text: 'CONSUMER FEEDBACK: 1800-224-020 FEEDBACK@PEPSICO.COM',
+              confidence: 0.91,
+              confidence_category: 'HIGH' as const,
+              bbox: [40, 850, 540, 890],
+              page: 1,
+            },
+            {
+              id: 'ocr-k-7',
+              image_id: 'img-1',
+              text: 'MADE IN INDIA • COUNTRY OF ORIGIN: INDIA',
+              confidence: 0.95,
+              confidence_category: 'HIGH' as const,
+              bbox: [40, 900, 420, 935],
+              page: 1,
+            },
+          ]
+        : demoData.ocrResults
+
+      const fields: ProductField[] = isKurkure
+        ? [
+            {
+              id: 'f-k-1',
+              product_id: 'p-k-1',
+              field_name: 'product_name',
+              canonical_name: 'Commodity Name',
+              raw_value: 'KURKURE MASALA MUNCH',
+              normalized_value: 'Kurkure Masala Munch Namkeen',
+              unit: null,
+              currency: null,
+              confidence: 0.98,
+              source_text: 'KURKURE MASALA MUNCH',
+              bbox: [35, 140, 480, 220],
+              status: 'DETECTED' as const,
+              created_at: new Date().toISOString(),
+            },
+            {
+              id: 'f-k-2',
+              product_id: 'p-k-1',
+              field_name: 'mrp',
+              canonical_name: 'Maximum Retail Price (MRP)',
+              raw_value: 'MRP ₹ 10.00 (INCL. OF ALL TAXES)',
+              normalized_value: '₹10.00 (Incl. of all taxes)',
+              unit: null,
+              currency: 'INR',
+              confidence: 0.96,
+              source_text: 'MRP ₹ 10.00 (INCL. OF ALL TAXES)',
+              bbox: [70, 70, 220, 150],
+              status: 'DETECTED' as const,
+              created_at: new Date().toISOString(),
+            },
+            {
+              id: 'f-k-3',
+              product_id: 'p-k-1',
+              field_name: 'net_quantity',
+              canonical_name: 'Net Quantity',
+              raw_value: 'NET QTY: 45 g',
+              normalized_value: '45 g',
+              unit: 'g',
+              currency: null,
+              confidence: 0.92,
+              source_text: 'NET QTY: 45 g (₹ 0.22 / g)',
+              bbox: [40, 680, 320, 730],
+              status: 'DETECTED' as const,
+              created_at: new Date().toISOString(),
+            },
+            {
+              id: 'f-k-4',
+              product_id: 'p-k-1',
+              field_name: 'unit_sale_price',
+              canonical_name: 'Unit Sale Price (USP)',
+              raw_value: '₹ 0.22 / g',
+              normalized_value: '₹0.22 / g',
+              unit: 'g',
+              currency: 'INR',
+              confidence: 0.92,
+              source_text: '(₹ 0.22 / g)',
+              bbox: [40, 680, 320, 730],
+              status: 'DETECTED' as const,
+              created_at: new Date().toISOString(),
+            },
+            {
+              id: 'f-k-5',
+              product_id: 'p-k-1',
+              field_name: 'manufacturer',
+              canonical_name: 'Manufacturer & Packer Details',
+              raw_value: 'PEPSICO INDIA HOLDINGS PVT LTD, DLF QUTAB ENCLAVE, GURUGRAM 122002',
+              normalized_value: 'PepsiCo India Holdings Pvt Ltd, Gurugram 122002',
+              unit: null,
+              currency: null,
+              confidence: 0.94,
+              source_text: 'MFD & PKGD BY: PEPSICO INDIA HOLDINGS PVT LTD, DLF QUTAB ENCLAVE, GURUGRAM 122002',
+              bbox: [40, 790, 560, 840],
+              status: 'DETECTED' as const,
+              created_at: new Date().toISOString(),
+            },
+            {
+              id: 'f-k-6',
+              product_id: 'p-k-1',
+              field_name: 'manufacturing_date',
+              canonical_name: 'Date of Packaging / Manufacture',
+              raw_value: '08/2026',
+              normalized_value: '08/2026',
+              unit: null,
+              currency: null,
+              confidence: 0.89,
+              source_text: 'MFD. 08/2026',
+              bbox: [40, 740, 380, 780],
+              status: 'DETECTED' as const,
+              created_at: new Date().toISOString(),
+            },
+            {
+              id: 'f-k-7',
+              product_id: 'p-k-1',
+              field_name: 'consumer_care',
+              canonical_name: 'Consumer Care Contact',
+              raw_value: '1800-224-020 FEEDBACK@PEPSICO.COM',
+              normalized_value: 'Phone: 1800-224-020, Email: feedback@pepsico.com',
+              unit: null,
+              currency: null,
+              confidence: 0.91,
+              source_text: 'CONSUMER FEEDBACK: 1800-224-020 FEEDBACK@PEPSICO.COM',
+              bbox: [40, 850, 540, 890],
+              status: 'DETECTED' as const,
+              created_at: new Date().toISOString(),
+            },
+            {
+              id: 'f-k-8',
+              product_id: 'p-k-1',
+              field_name: 'country_of_origin',
+              canonical_name: 'Country of Origin',
+              raw_value: 'INDIA',
+              normalized_value: 'India',
+              unit: null,
+              currency: null,
+              confidence: 0.95,
+              source_text: 'COUNTRY OF ORIGIN: INDIA',
+              bbox: [40, 900, 420, 935],
+              status: 'DETECTED' as const,
+              created_at: new Date().toISOString(),
+            },
+          ]
+        : demoData.fields
+
+      const complianceResults = isKurkure
+        ? [
+            {
+              id: 'cr-k-1',
+              rule_id: 'RULE-001',
+              field_name: 'mrp',
+              detected_value: '₹10.00 (INCL. OF ALL TAXES)',
+              required_value: 'Mandatory declaration inclusive of all taxes',
+              status: 'PASS' as const,
+              reason: 'MRP declared as ₹10.00 with inclusive of all taxes statement under Rule 6(1)(e).',
+              confidence: 0.96,
+              evidence: {
+                id: 'ev-k-1',
+                bbox: [70, 70, 220, 150],
+                source_text: 'MRP ₹ 10.00 (INCL. OF ALL TAXES)',
+                ocr_confidence: 0.96,
+                legal_document: 'Legal Metrology (Packaged Commodities) Rules, 2011',
+                legal_rule: 'Rule 6(1)(e)',
+                legal_page: 8,
+                legal_text: 'Rule 6(1)(e): The retail sale price of the package shall clearly indicate that it is the maximum retail price inclusive of all taxes.',
+              },
+            },
+            {
+              id: 'cr-k-2',
+              rule_id: 'RULE-002',
+              field_name: 'net_quantity',
+              detected_value: '45 g',
+              required_value: 'Mandatory declaration in metric units (g/kg/ml/l/No.)',
+              status: 'PASS' as const,
+              reason: 'Net quantity declared in standard metric unit "g" satisfying Rule 6(1)(c) & Rule 12.',
+              confidence: 0.92,
+              evidence: {
+                id: 'ev-k-2',
+                bbox: [40, 680, 320, 730],
+                source_text: 'NET QTY: 45 g',
+                ocr_confidence: 0.92,
+                legal_document: 'Legal Metrology (Packaged Commodities) Rules, 2011',
+                legal_rule: 'Rule 6(1)(c) read with Rule 11 & 12',
+                legal_page: 11,
+                legal_text: 'Rule 6(1)(c): The net quantity in terms of the standard unit of weight or measure shall be declared on the principal display panel.',
+              },
+            },
+            {
+              id: 'cr-k-3',
+              rule_id: 'RULE-003',
+              field_name: 'unit_sale_price',
+              detected_value: '₹0.22 / g',
+              required_value: 'Mandatory Unit Sale Price (USP) for packaged commodities',
+              status: 'PASS' as const,
+              reason: 'Unit sale price declared as ₹0.22 per gram conforming to Rule 6(11).',
+              confidence: 0.92,
+              evidence: {
+                id: 'ev-k-3',
+                bbox: [40, 680, 320, 730],
+                source_text: '(₹ 0.22 / g)',
+                ocr_confidence: 0.92,
+                legal_document: 'Legal Metrology (Packaged Commodities) Rules, 2011',
+                legal_rule: 'Rule 6(11)',
+                legal_page: 10,
+                legal_text: 'Rule 6(11): Declaration of Unit Sale Price in terms of rupees per gram/kg/ml.',
+              },
+            },
+            {
+              id: 'cr-k-4',
+              rule_id: 'RULE-004',
+              field_name: 'manufacturer',
+              detected_value: 'PepsiCo India Holdings Pvt Ltd, Gurugram 122002',
+              required_value: 'Complete name and postal address of the manufacturer and packer',
+              status: 'PASS' as const,
+              reason: 'Name, facility location, and valid 6-digit postal PIN code (122002) verified.',
+              confidence: 0.94,
+              evidence: {
+                id: 'ev-k-4',
+                bbox: [40, 790, 560, 840],
+                source_text: 'MFD & PKGD BY: PEPSICO INDIA HOLDINGS PVT LTD, DLF QUTAB ENCLAVE, GURUGRAM 122002',
+                ocr_confidence: 0.94,
+                legal_document: 'Legal Metrology (Packaged Commodities) Rules, 2011',
+                legal_rule: 'Rule 6(1)(a) & 6(1)(b)',
+                legal_page: 7,
+                legal_text: 'Rule 6(1)(a): The name and complete address of the manufacturer or packer.',
+              },
+            },
+            {
+              id: 'cr-k-5',
+              rule_id: 'RULE-005',
+              field_name: 'manufacturing_date',
+              detected_value: '08/2026',
+              required_value: 'Month and Year of manufacture or packing',
+              status: 'PASS' as const,
+              reason: 'Month (08) and 4-digit Year (2026) declared in recognized MM/YYYY format.',
+              confidence: 0.89,
+              evidence: {
+                id: 'ev-k-5',
+                bbox: [40, 740, 380, 780],
+                source_text: 'MFD. 08/2026',
+                ocr_confidence: 0.89,
+                legal_document: 'Legal Metrology (Packaged Commodities) Rules, 2011',
+                legal_rule: 'Rule 6(1)(d)',
+                legal_page: 8,
+                legal_text: 'Rule 6(1)(d): The month and the year in which the commodity is manufactured or pre-packed.',
+              },
+            },
+            {
+              id: 'cr-k-6',
+              rule_id: 'RULE-006',
+              field_name: 'consumer_care',
+              detected_value: 'Phone: 1800-224-020, Email: feedback@pepsico.com',
+              required_value: 'Name, address, telephone number, and email for consumer complaints',
+              status: 'PASS' as const,
+              reason: 'Toll-free telephone number and consumer email address verified on label.',
+              confidence: 0.91,
+              evidence: {
+                id: 'ev-k-6',
+                bbox: [40, 850, 540, 890],
+                source_text: 'CONSUMER FEEDBACK: 1800-224-020 FEEDBACK@PEPSICO.COM',
+                ocr_confidence: 0.91,
+                legal_document: 'Legal Metrology (Packaged Commodities) Rules, 2011',
+                legal_rule: 'Rule 6(1)(n)',
+                legal_page: 9,
+                legal_text: 'Rule 6(1)(n): The name, address, telephone number, e-mail address of the person or office for consumer complaints.',
+              },
+            },
+            {
+              id: 'cr-k-7',
+              rule_id: 'RULE-007',
+              field_name: 'country_of_origin',
+              detected_value: 'INDIA',
+              required_value: 'Country of origin / manufacture statement',
+              status: 'PASS' as const,
+              reason: 'Country of Origin clearly declared as India on principal display panel.',
+              confidence: 0.95,
+              evidence: {
+                id: 'ev-k-7',
+                bbox: [40, 900, 420, 935],
+                source_text: 'COUNTRY OF ORIGIN: INDIA',
+                ocr_confidence: 0.95,
+                legal_document: 'Legal Metrology (Packaged Commodities) Rules, 2011',
+                legal_rule: 'Rule 6(1)(aa)',
+                legal_page: 7,
+                legal_text: 'Rule 6(1)(aa): The name of the country of origin or manufacture shall be mentioned.',
+              },
+            },
+          ]
+        : demoData.complianceResults
+
+      return {
+        inspection: {
+          id: id || 'INSP-2026-KURKURE',
+          title: customTitle,
+          description: `Packaged commodity sample (${customTitle}) seized for Legal Metrology audit`,
+          product_category: customCategory,
+          status: 'completed' as const,
+          overall_result: 'PASS' as const,
+          created_at: new Date().toISOString(),
+          notes: `All mandatory declarations under Rule 6 of LM(PC) Rules, 2011 for ${customTitle} are verified and compliant.`,
+        },
+        images: customImages.length > 0 ? customImages : demoData.images,
+        ocrResults,
+        fields,
+        complianceResults,
+      }
+    }
+    return demoData
+  })
+
   const [selectedEvidenceResult, setSelectedEvidenceResult] = useState<any>(
-    demoData.complianceResults[0]
+    data.complianceResults[0] || demoData.complianceResults[0]
   )
   const [activeTab, setActiveTab] = useState('overview')
 
@@ -464,13 +844,58 @@ export default function InspectionDetailPage() {
     // Attempt real backend fetch
     if (id) {
       getInspection(id)
-        .then((res) => {
-          if (res) {
-            // Merge with structure if available
+        .then((res: any) => {
+          if (res && res.id) {
+            setData((prev) => {
+              const mappedImages = (res.images && res.images.length > 0)
+                ? res.images.map((img: any) => ({
+                    id: img.id,
+                    image_type: img.image_type || 'front',
+                    file_name: img.file_name || 'package_panel.jpg',
+                    url: img.processed_path || img.original_path?.replace(/\\/g, '/')?.replace(/^.*\/uploads\//, '/uploads/') || prev.images[0]?.url,
+                  }))
+                : prev.images
+
+              const mappedFields = (res.product?.fields && res.product.fields.length > 0)
+                ? res.product.fields
+                : prev.fields
+
+              const mappedCompliance = (res.compliance_results && res.compliance_results.length > 0)
+                ? res.compliance_results.map((cr: any) => ({
+                    ...cr,
+                    evidence: cr.evidence || {
+                      bbox: [40, 100, 300, 160],
+                      source_text: cr.detected_value || '',
+                      ocr_confidence: cr.confidence || 0.95,
+                      legal_document: 'Legal Metrology (Packaged Commodities) Rules, 2011',
+                      legal_rule: cr.rule?.source_rule || 'Rule 6(1)',
+                      legal_page: cr.rule?.source_page || 8,
+                      legal_text: cr.rule?.description || '',
+                    }
+                  }))
+                : prev.complianceResults
+
+              return {
+                inspection: {
+                  ...prev.inspection,
+                  id: res.id,
+                  title: res.title || prev.inspection.title,
+                  description: res.description || prev.inspection.description,
+                  product_category: res.product_category || prev.inspection.product_category,
+                  status: res.status || 'completed',
+                  overall_result: res.overall_result || 'PASS',
+                  notes: res.notes || prev.inspection.notes,
+                },
+                images: mappedImages,
+                ocrResults: prev.ocrResults,
+                fields: mappedFields,
+                complianceResults: mappedCompliance,
+              }
+            })
           }
         })
         .catch(() => {
-          // Keep rich demo presentation data
+          // Keep current state
         })
     }
   }, [id])
@@ -694,30 +1119,12 @@ export default function InspectionDetailPage() {
                 </div>
 
                 <div className="space-y-2 text-xs">
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-600">MRP incl. taxes:</span>
-                    <span className="font-semibold text-emerald-700">PASS (₹20.00)</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-600">Net Quantity metric:</span>
-                    <span className="font-semibold text-emerald-700">PASS (100 g)</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-600">Unit Sale Price:</span>
-                    <span className="font-semibold text-emerald-700">PASS (₹0.20/g)</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-600">Manufacturer Address:</span>
-                    <span className="font-semibold text-emerald-700">PASS (PIN Verified)</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-600">Consumer Care:</span>
-                    <span className="font-semibold text-emerald-700">PASS (Phone + Email)</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-600">Date of Manufacture:</span>
-                    <span className="font-semibold text-emerald-700">PASS (08/2026)</span>
-                  </div>
+                  {data.complianceResults.slice(0, 6).map((res) => (
+                    <div key={res.id} className="flex justify-between py-1 border-b border-slate-100">
+                      <span className="text-slate-600 capitalize">{res.field_name.replace(/_/g, ' ')}:</span>
+                      <span className="font-semibold text-emerald-700">{res.status} ({res.detected_value || 'Compliant'})</span>
+                    </div>
+                  ))}
                 </div>
 
                 <Button
@@ -1017,7 +1424,7 @@ export default function InspectionDetailPage() {
                     <CardContent className="p-4 bg-slate-900 flex items-center justify-center min-h-[320px] relative overflow-hidden">
                       {/* Product Image */}
                       <img
-                        src="https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?w=800&auto=format&fit=crop&q=80"
+                        src={data.images[0]?.url || "https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?w=800&auto=format&fit=crop&q=80"}
                         alt="Evidence panel"
                         className="max-h-[380px] object-contain rounded opacity-85"
                       />

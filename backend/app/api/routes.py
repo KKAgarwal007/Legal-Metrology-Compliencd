@@ -665,9 +665,6 @@ async def process_full_pipeline(
             {"name": "report_generation", "status": "completed", "started_at": now, "completed_at": now},
         ],
     )
-            {"name": "report_generation", "status": "pending"},
-        ],
-    )
 
 
 # ===========================================================================
