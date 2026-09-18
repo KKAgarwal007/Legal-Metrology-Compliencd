@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}New Packaging Scan · LM Compliance Checker{% endblock %}
+
+{% block content %}
+<div class="detail-header" style="margin-bottom: 20px;">
+  <div>
+    <h1>Initiate Packaging Compliance Scan</h1>
+    <p class="muted" style="margin-top: 4px;">
+      Upload product packaging artwork or camera photo for automated Legal Metrology (Packaged Commodities) verification.
+    </p>
+  </div>
+</div>
+
+<div class="two-col">
+  <!-- Left Column: Upload Form -->
+  <div>
+    <form method="POST" enctype="multipart/form-data" class="form-box" id="scan-form">
+      <label>1. Product Packaging Image</label>
+      <div class="upload-dropzone" id="dropzone">
+        <input type="file" name="image" id="file-input" class="hidden-file-input" accept="image/jpeg,image/png,image/webp" required>
+        <div id="dropzone-prompt">
+          <span class="dropzone-icon">📷</span>
+          <div class="dropzone-text">Drop packaging photo here or click to browse</div>
+          <div class="dropzone-hint">Supports JPEG, PNG, WEBP · Up to 12 MB</div>
+        </div>
+        <div class="upload-preview-container" id="preview-container">
+          <img id="preview-img" src="" alt="Packaging preview">
+          <div style="margin-top: 8px;">
+            <span id="preview-filename" style="font-weight: 600; font-size: 13px; color: var(--brand-primary);"></span>
+            <button type="button" class="tool-btn" style="margin-left: 8px;" onclick="resetFile()">Change Image</button>
+          </div>
+        </div>
+      </div>
+
+      <label for="product_name">2. Product Name <span style="color: var(--status-bad);">*</span></label>
+      <input type="text" id="product_name" name="product_name" required placeholder="e.g. Parle Platina Hide & Seek 120g">
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div>
+          <label for="brand">Brand</label>
+          <input type="text" id="brand" name="brand" placeholder="e.g. Parle Products">
+        </div>
+        <div>
+          <label for="category">Commodity Category</label>
+          <select id="category" name="category">
+            <option value="food">🍪 Food & Beverages</option>
+            <option value="household">🧼 Household & Detergents</option>
+            <option value="cosmetics">💄 Cosmetics & Personal Care</option>
+            <option value="electronics">⚡ Electronics & Appliances</option>
+            <option value="other">📦 Other Commodities</option>
+          </select>
+        </div>
+      </div>
+
+      <label class="checkbox-label">
+        <input type="checkbox" name="is_imported" id="is_imported">
+        <span>Mark as Imported Commodity (Enforces Rule 6(8) Country of Origin check)</span>
+      </label>
+
+      <label for="px_per_mm">
+        Calibration: Pixels per Millimeter
+        <span class="muted small">(Optional — for millimeter font accuracy)</span>
+      </label>
+      <input type="number" step="0.01" id="px_per_mm" name="px_per_mm" placeholder="e.g. 5.9 (leave blank for standard DPI calibration)">
+
+      <button type="submit" id="submit-btn" style="width: 100%; margin-top: 24px; font-size: 15px; padding: 13px;">
+        <span id="btn-icon">⚡</span>
+        <span id="btn-text">Execute Compliance Audit</span>
+      </button>
+    </form>
+  </div>
+
+  <!-- Right Column: Quick Demos & Inspection Guidelines -->
+  <div>
+    <h2><span>💡</span> Quick Demo Presets for Judges</h2>
+    <div class="dossier-card" style="padding: 20px; margin-bottom: 22px;">
+      <p style="font-size: 13px; color: var(--ink-soft); margin-top: 0;">
+        Click any preset below to instantly pre-fill metadata for verified inspection samples:
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button type="button" class="tool-btn" onclick="applyPreset('Sample Potato Chips', 'ABC Foods Pvt. Ltd.', 'food')"
+                style="text-align: left; padding: 10px 14px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--accent-mustard);">
+          <span>🥔 <strong>Sample Potato Chips</strong> (ABC Foods Pvt. Ltd.)</span>
+          <span class="badge badge-compliant">Workflow Sample</span>
+        </button>
+        <button type="button" class="tool-btn" onclick="applyPreset('Hide & Seek Strawberry Creme', 'Parle Platina', 'food')"
+                style="text-align: left; padding: 10px 14px; font-size: 13px; display: flex; justify-content: space-between; align-items: center;">
+          <span>🍪 <strong>Hide & Seek Creme Biscuits</strong> (Parle)</span>
+          <span class="badge badge-compliant">Food</span>
+        </button>
+        <button type="button" class="tool-btn" onclick="applyPreset('Surf Excel Easy Wash Powder', 'Hindustan Unilever', 'household')"
+                style="text-align: left; padding: 10px 14px; font-size: 13px; display: flex; justify-content: space-between; align-items: center;">
+          <span>🧼 <strong>Surf Excel Easy Wash 70g</strong> (Unilever)</span>
+          <span class="badge badge-compliant">FMCG</span>
+        </button>
+        <button type="button" class="tool-btn" onclick="applyPreset('Good Day Cashew Cookies', 'Britannia', 'food')"
+                style="text-align: left; padding: 10px 14px; font-size: 13px; display: flex; justify-content: space-between; align-items: center;">
+          <span>🍪 <strong>Good Day Cashew Cookies</strong> (Britannia)</span>
+          <span class="badge badge-compliant">Food</span>
+        </button>
+      </div>
+    </div>
+
+    <h2><span>📏</span> Inspection Standard Reference</h2>
+    <div class="dossier-card" style="padding: 20px;">
+      <div class="fact-row thick" style="border-bottom-color: var(--brand-primary);">
+        <span>Principal Display Area (PDP)</span>
+        <span>Min. Font (Rule 6)</span>
+      </div>
+      <div class="fact-row">
+        <span>Up to 100 cm²</span>
+        <span style="font-family: var(--mono); font-weight: 700;">1.0 mm</span>
+      </div>
+      <div class="fact-row">
+        <span>100 cm² to 500 cm²</span>
+        <span style="font-family: var(--mono); font-weight: 700;">2.0 mm</span>
+      </div>
+      <div class="fact-row">
+        <span>500 cm² to 2500 cm²</span>
+        <span style="font-family: var(--mono); font-weight: 700;">4.0 mm</span>
+      </div>
+      <div class="fact-row">
+        <span>Greater than 2500 cm²</span>
+        <span style="font-family: var(--mono); font-weight: 700;">6.0 mm</span>
+      </div>
+      <div class="callout-box" style="margin-top: 14px; margin-bottom: 0;">
+        <strong>Capture Advice:</strong> Ensure the packaging declaration panel is well-lit and parallel to the camera sensor. The engine automatically compensates for phone EXIF rotation and white-on-dark packaging.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const fileInput = document.getElementById('file-input');
+  const dropzone = document.getElementById('dropzone');
+  const dropzonePrompt = document.getElementById('dropzone-prompt');
+  const previewContainer = document.getElementById('preview-container');
+  const previewImg = document.getElementById('preview-img');
+  const previewFilename = document.getElementById('preview-filename');
+  const scanForm = document.getElementById('scan-form');
+  const submitBtn = document.getElementById('submit-btn');
+
+  fileInput.addEventListener('change', function(e) {
+    if (this.files && this.files[0]) {
+      showPreview(this.files[0]);
+    }
+  });
+
+  // Drag and drop events
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.add('dragover');
+    }, false);
+  });
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.remove('dragover');
+    }, false);
+  });
+
+  dropzone.addEventListener('drop', function(e) {
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      fileInput.files = e.dataTransfer.files;
+      showPreview(e.dataTransfer.files[0]);
+    }
+  });
+
+  function showPreview(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      previewImg.src = e.target.result;
+      previewFilename.innerText = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+      dropzonePrompt.style.display = 'none';
+      previewContainer.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function resetFile() {
+    fileInput.value = '';
+    previewImg.src = '';
+    dropzonePrompt.style.display = 'block';
+    previewContainer.style.display = 'none';
+  }
+
+  function applyPreset(name, brand, category) {
+    document.getElementById('product_name').value = name;
+    document.getElementById('brand').value = brand;
+    document.getElementById('category').value = category;
+  }
+
+  scanForm.addEventListener('submit', function() {
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.8';
+    document.getElementById('btn-icon').innerText = '⏳';
+    document.getElementById('btn-text').innerText = 'Scanning Packaging with Neural OCR...';
+  });
+</script>
+{% endblock %}

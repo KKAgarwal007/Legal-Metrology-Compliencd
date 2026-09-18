@@ -1,0 +1,49 @@
+# Environment & Secrets (NEVER commit secrets to GitHub)
+.env
+.env.*
+!.env.example
+
+# Python virtual environment & bytecode
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Local SQLite databases & instance storage
+instance/*.db
+instance/*.sqlite
+instance/*.sqlite3
+
+# Uploaded images & generated PDF reports (keep folder structure via .gitkeep)
+uploads/*
+!uploads/.gitkeep
+uploads/crops/*
+!uploads/crops/.gitkeep
+reports/*
+!reports/.gitkeep
+
+# Windows installer files & binaries
+*.exe
+*.msi
+tesseract-ocr-w64-setup*.exe
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Agent / Workspace scratch
+.gemini/
+.agents/
+*.log

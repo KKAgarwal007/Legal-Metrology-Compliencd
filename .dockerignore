@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+
+# Python virtual environment and bytecode
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Local databases and runtime data
+instance/*.db
+instance/*.sqlite
+instance/*.sqlite3
+
+# Uploads & Reports runtime generated data
+uploads/*
+!uploads/.gitkeep
+uploads/crops/*
+reports/*
+!reports/.gitkeep
+
+# Environment secrets (provide via docker run -e or docker-compose)
+.env
+.env.local
+
+# Windows executables and setup files
+*.exe
+*.msi
+tesseract-ocr-w64-setup*.exe
+
+# IDE and agent directories
+.idea/
+.vscode/
+.gemini/
+.agents/
+*.log

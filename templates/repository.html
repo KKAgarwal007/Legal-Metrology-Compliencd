@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Packaging Repository · LM Compliance Checker{% endblock %}
+
+{% block content %}
+<div class="detail-header" style="margin-bottom: 20px;">
+  <div>
+    <h1>Verified Packaging Repository</h1>
+    <div class="muted" style="font-size: 14px; margin-top: 4px;">
+      Central statutory registry of scanned commercial packaged commodities and legal compliance audits.
+    </div>
+  </div>
+  <div>
+    <a href="{{ url_for('new_scan') }}" class="btn">
+      <span>📷</span> New Inspection
+    </a>
+  </div>
+</div>
+
+<form method="GET" class="search-bar">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search by product name, manufacturer, or brand...">
+  <select name="status">
+    <option value="">All Statuses</option>
+    <option value="compliant" {% if status=='compliant' %}selected{% endif %}>✓ Compliant</option>
+    <option value="review" {% if status=='review' %}selected{% endif %}>⚠️ Needs Review</option>
+    <option value="non_compliant" {% if status=='non_compliant' %}selected{% endif %}>✗ Non-Compliant</option>
+  </select>
+  <button type="submit">Filter Registry</button>
+  {% if q or status %}
+    <a href="{{ url_for('repository') }}" class="btn btn-secondary" style="margin-top: 0;">Clear Filter</a>
+  {% endif %}
+</form>
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Commodity & Brand</th>
+      <th>Category</th>
+      <th>Status</th>
+      <th>Score</th>
+      <th>Inspector</th>
+      <th>Verified On</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in scans %}
+    <tr>
+      <td style="font-family: var(--mono); font-size: 12px; color: var(--ink-muted);">
+        #{{ "%04d"|format(s.id) }}
+      </td>
+      <td>
+        <div style="font-weight: 700; font-size: 14px; color: var(--brand-primary);">{{ s.product.name }}</div>
+        <div class="muted small">{{ s.product.brand or 'Unbranded' }}</div>
+      </td>
+      <td>
+        <span class="meta-tag" style="padding: 2px 8px; font-size: 11.5px;">
+          {{ s.product.category|capitalize }}
+        </span>
+      </td>
+      <td>
+        <span class="badge badge-{{ s.status }}">{{ s.status.replace('_',' ') }}</span>
+      </td>
+      <td>
+        <span style="font-family: var(--mono); font-weight: 700; font-size: 14px; color: {% if s.compliance_score >= 85 %}var(--status-good-ink){% elif s.compliance_score >= 60 %}var(--status-warn-ink){% else %}var(--status-bad-ink){% endif %};">
+          {{ s.compliance_score|round|int }}/100
+        </span>
+      </td>
+      <td style="font-size: 13px;">{{ s.inspector.username }}</td>
+      <td style="font-size: 12.5px; color: var(--ink-soft);">{{ s.created_at.strftime('%d-%b-%Y') }}</td>
+      <td>
+        <a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="tool-btn" style="text-decoration: none;">
+          Dossier →
+        </a>
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="8" class="muted" style="text-align: center; padding: 36px;">
+        No matching packaging scans found in the registry.
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

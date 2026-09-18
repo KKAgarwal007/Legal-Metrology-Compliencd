@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}Operations Dashboard · LM Compliance AI{% endblock %}
+
+{% block content %}
+<div class="detail-header" style="margin-bottom: 24px;">
+  <div>
+    <h1>Enforcement Operations Dashboard</h1>
+    <div class="muted" style="font-size: 14px; margin-top: 4px;">
+      AI-Powered Legal Metrology (Packaged Commodities) Verification · PaddleOCR & RAG Knowledge Engine
+    </div>
+  </div>
+  <div style="display: flex; gap: 10px;">
+    <a href="{{ url_for('new_scan') }}" class="btn">
+      <span>📷</span> Initiate New Product Scan
+    </a>
+  </div>
+</div>
+
+<!-- Stat Counters -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_scans }}</div>
+    <div class="stat-label">Total Verified</div>
+  </div>
+  <div class="stat-card stat-good">
+    <div class="stat-num">{{ compliant }}</div>
+    <div class="stat-label">Compliant Packages</div>
+  </div>
+  <div class="stat-card stat-warn">
+    <div class="stat-num">{{ review }}</div>
+    <div class="stat-label">Requires Review</div>
+  </div>
+  <div class="stat-card stat-bad">
+    <div class="stat-num">{{ non_compliant }}</div>
+    <div class="stat-label">Statutory Violations</div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- Interactive Legal Metrology RAG Search Tool -->
+<!-- ========================================================================= -->
+<div class="dossier-card" style="margin-bottom: 26px; padding: 22px 26px; border-top: 3px solid var(--accent-mustard);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+    <div>
+      <h2 style="font-size: 17px; margin: 0; display: flex; align-items: center; gap: 8px;">
+        <span>🧠</span> Ask the Legal Metrology Assistant (RAG Vector Store)
+      </h2>
+      <p class="muted" style="font-size: 13px; margin: 4px 0 0 0;">
+        Zero-hallucination statutory search across Legal Metrology Act, 2009 & Packaged Commodities Rules, 2011.
+      </p>
+    </div>
+    <span class="chip-pill">Traceable Legal Citations</span>
+  </div>
+
+  <div class="rag-search-bar">
+    <input type="text" id="rag-search-input" placeholder="Ask any legal metrology rule (e.g., penalty for above MRP, font size for pouch, net quantity)..."
+           onkeydown="if(event.key === 'Enter') executeRagQuery()">
+    <button type="button" id="rag-search-btn" class="btn-rag-search" onclick="executeRagQuery()">
+      <span>🔍</span> Search Rules
+    </button>
+  </div>
+
+  <!-- Quick Suggestion Chips -->
+  <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center;">
+    <span class="muted" style="font-size: 11.5px; font-weight: 600;">Try asking:</span>
+    <button type="button" class="rag-example-chip" onclick="executeRagQuery('What is the penalty for selling above MRP?')">
+      ⚖️ Penalty for above MRP
+    </button>
+    <button type="button" class="rag-example-chip" onclick="executeRagQuery('Minimum font size for packaged commodities')">
+      📏 Font size requirements
+    </button>
+    <button type="button" class="rag-example-chip" onclick="executeRagQuery('Mandatory net quantity declaration')">
+      📦 Net quantity rules
+    </button>
+    <button type="button" class="rag-example-chip" onclick="executeRagQuery('Consumer care redressal details')">
+      📞 Consumer helpline
+    </button>
+    <button type="button" class="rag-example-chip" onclick="executeRagQuery('Country of origin for imported packages')">
+      🌐 Imported products
+    </button>
+  </div>
+
+  <!-- RAG Results Container -->
+  <div id="rag-results-container" style="display: none; margin-top: 18px; border-top: 1px solid var(--card-border); padding-top: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #6b3ba7; letter-spacing: 0.5px;">
+        Retrieved Statutory Provisions (RAG Knowledge Engine):
+      </div>
+      <button type="button" class="tool-btn" style="padding: 3px 8px; font-size: 11px;" onclick="document.getElementById('rag-results-container').style.display='none'">
+        ✕ Clear
+      </button>
+    </div>
+    <div id="rag-results-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;"></div>
+  </div>
+</div>
+
+<!-- Compliance Health Distribution Bar -->
+{% if total_scans > 0 %}
+{% set pct_comp = (compliant / total_scans * 100)|round(1) %}
+{% set pct_rev = (review / total_scans * 100)|round(1) %}
+{% set pct_non = (non_compliant / total_scans * 100)|round(1) %}
+<div class="dossier-card" style="padding: 16px 22px; margin-bottom: 28px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+    <span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--brand-primary);">
+      Statutory Compliance Health Ratio
+    </span>
+    <span style="font-family: var(--mono); font-weight: 700; font-size: 14px; color: var(--status-good-ink);">
+      {{ pct_comp }}% Overall Compliance Rate
+    </span>
+  </div>
+  <div style="height: 12px; background: var(--card-bg-alt); border-radius: 999px; overflow: hidden; display: flex; box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);">
+    <div style="width: {{ pct_comp }}%; background: var(--status-good);" title="Compliant: {{ pct_comp }}%"></div>
+    <div style="width: {{ pct_rev }}%; background: var(--status-warn);" title="Review: {{ pct_rev }}%"></div>
+    <div style="width: {{ pct_non }}%; background: var(--status-bad);" title="Non-Compliant: {{ pct_non }}%"></div>
+  </div>
+  <div style="display: flex; gap: 20px; font-size: 12px; margin-top: 8px; color: var(--ink-soft);">
+    <span style="display: inline-flex; align-items: center; gap: 6px;">
+      <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--status-good);"></span> Compliant ({{ compliant }})
+    </span>
+    <span style="display: inline-flex; align-items: center; gap: 6px;">
+      <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--status-warn);"></span> Needs Review ({{ review }})
+    </span>
+    <span style="display: inline-flex; align-items: center; gap: 6px;">
+      <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--status-bad);"></span> Non-Compliant ({{ non_compliant }})
+    </span>
+  </div>
+</div>
+{% endif %}
+
+<div class="two-col">
+  <!-- Recent Scans Log -->
+  <section>
+    <h2><span>📋</span> Recent Package Inspections</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Product / Brand</th>
+          <th>Status</th>
+          <th>Score</th>
+          <th>Date</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in recent_scans %}
+        <tr>
+          <td>
+            <div style="font-weight: 700; font-size: 14px;">{{ s.product.name }}</div>
+            <div class="muted small">{{ s.product.brand or 'Unbranded' }} · {{ s.product.category|capitalize }}</div>
+          </td>
+          <td>
+            <span class="badge badge-{{ s.status }}">{{ s.status.replace('_',' ') }}</span>
+          </td>
+          <td>
+            <span style="font-family: var(--mono); font-weight: 700; font-size: 14px;">
+              {{ s.compliance_score|round|int }}/100
+            </span>
+          </td>
+          <td class="muted small">
+            {{ s.created_at.strftime('%d-%b-%Y') }}
+          </td>
+          <td>
+            <a href="{{ url_for('scan_detail', scan_id=s.id) }}" class="tool-btn" style="padding: 4px 10px; font-size: 12px; text-decoration: none;">
+              Dossier →
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="muted" style="text-align: center; padding: 24px;">
+            No inspection records recorded yet. Start your first scan above!
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Side Column: Top Infractions & Supabase Status -->
+  <section>
+    <h2><span>⚖️</span> Top Statutory Infraction Patterns</h2>
+    {% if top_violations %}
+    <div class="dossier-card" style="padding: 16px 20px; margin-bottom: 22px;">
+      {% for field, count in top_violations %}
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--card-border-subtle);">
+        <span style="font-size: 13.5px; font-weight: 500;">
+          📌 {{ field.replace('_',' ')|title }}
+        </span>
+        <span class="sev sev-major" style="font-family: var(--mono);">{{ count }} instances</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="callout-box" style="margin-bottom: 22px;">
+      No systemic violations detected. High compliance maintained across verified SKUs.
+    </div>
+    {% endif %}
+
+    <h2><span>🗄️</span> Supabase Database Integration</h2>
+    <div class="dossier-card" style="padding: 18px 20px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        {% if supabase_status and supabase_status.connected %}
+          <span style="color: var(--status-good); font-size: 18px;">🟢</span>
+          <strong>Supabase Cloud PostgreSQL Active</strong>
+        {% else %}
+          <span style="color: var(--accent-mustard); font-size: 18px;">⚡</span>
+          <strong>Supabase Dual-Mode (Local SQLite Fallback)</strong>
+        {% endif %}
+      </div>
+      <p style="font-size: 13px; color: var(--ink-soft); margin: 0 0 12px 0;">
+        {% if supabase_status and supabase_status.connected %}
+          Connected to cloud database (<code>{{ supabase_status.url }}</code>). All scans and products synchronize automatically.
+        {% else %}
+          All scans are safely persisted to the local SQLite database. To sync to your cloud Supabase database, copy <code>.env.example</code> to <code>.env</code> and add your <code>SUPABASE_URL</code> and <code>SUPABASE_KEY</code>.
+        {% endif %}
+      </p>
+      <div style="font-size: 12px; font-family: var(--mono); background: var(--card-bg-subtle); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--card-border-subtle);">
+        Schema File: <code>supabase_schema.sql</code> (Run in Supabase SQL Editor)
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function executeRagQuery(queryText) {
+    const input = document.getElementById('rag-search-input');
+    const btn = document.getElementById('rag-search-btn');
+    const container = document.getElementById('rag-results-container');
+    const list = document.getElementById('rag-results-list');
+
+    if (queryText) {
+      input.value = queryText;
+    }
+    const q = input.value.trim();
+    if (!q) {
+      input.focus();
+      return;
+    }
+
+    // Loading feedback
+    const originalBtnHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳</span> Searching...';
+
+    fetch(`/api/rag/query?q=${encodeURIComponent(q)}`)
+      .then(res => res.json())
+      .then(data => {
+        list.innerHTML = '';
+        if (data.results && data.results.length > 0) {
+          data.results.forEach(item => {
+            const doc = item.doc;
+            const card = document.createElement('div');
+            card.className = 'rag-result-card';
+            card.innerHTML = `
+              <div style="font-size: 11px; font-weight: 700; color: #6b3ba7; font-family: var(--mono);">${doc.clause || doc.rule_code}</div>
+              <div style="font-weight: 700; font-size: 14px; margin: 4px 0; color: var(--brand-primary);">${doc.title}</div>
+              <div style="font-size: 12.5px; color: var(--ink-soft); line-height: 1.4; margin-bottom: 8px;">${doc.requirement}</div>
+              <div style="font-size: 11.5px; color: var(--status-bad-ink); background: var(--status-bad-bg); padding: 5px 8px; border-radius: 4px; border-left: 3px solid var(--status-bad);">
+                <strong>Penalty:</strong> ${doc.penalties}
+              </div>
+            `;
+            list.appendChild(card);
+          });
+          container.style.display = 'block';
+        } else {
+          list.innerHTML = '<div class="muted" style="grid-column: 1 / -1; padding: 12px;">No direct statutory matches found. Try queries like "MRP", "Net quantity", or "Font size".</div>';
+          container.style.display = 'block';
+        }
+      })
+      .catch(err => {
+        console.error('RAG query failed:', err);
+        list.innerHTML = '<div style="color: var(--status-bad); grid-column: 1 / -1;">Query error. Please ensure you are signed in.</div>';
+        container.style.display = 'block';
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnHtml;
+      });
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,26 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lmc-compliance-app:latest
+    container_name: lmc_compliance_app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - APP_SECRET_KEY=${APP_SECRET_KEY:-change-this-secret-in-production}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
+    volumes:
+      # Persist SQLite database, generated reports, and uploaded packaging images
+      - ./instance:/app/instance
+      - ./uploads:/app/uploads
+      - ./reports:/app/reports
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

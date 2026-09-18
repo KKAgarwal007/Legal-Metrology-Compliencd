@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Legal Metrology Compliance Checker{% endblock %}</title>
+  <meta name="description" content="AI-Powered Product Verification & Legal Metrology Compliance System with PaddleOCR, RAG Statutory Retrieval, and Supabase.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2220%22 font-size=%2220%22>⚖️</text></svg>">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <!-- Official Government / Department Header Ribbon -->
+  <div class="official-ribbon">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span>⚖️</span>
+      <strong>Legal Metrology (Packaged Commodities) Enforcement System</strong>
+      <span class="ribbon-sub">· AI OCR & RAG Statutory Verification</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      {% if supabase_status and supabase_status.connected %}
+        <span class="badge-live-supabase" title="Connected to Supabase PostgreSQL at {{ supabase_status.url }}">
+          🟢 Supabase DB Connected
+        </span>
+      {% else %}
+        <span class="badge-fallback-supabase" title="Running in dual-mode with local SQLite. Add SUPABASE_URL and SUPABASE_KEY in .env to connect cloud database.">
+          ⚡ Supabase Ready (Local Active)
+        </span>
+      {% endif %}
+      <div class="badge-live">PaddleOCR Active</div>
+    </div>
+  </div>
+
+  {% if current_user.is_authenticated %}
+  <nav class="navbar">
+    <div class="nav-left">
+      <a href="{{ url_for('dashboard') }}" class="brand">
+        <span class="brand-seal">⚖</span>
+        <span>LM Compliance AI</span>
+      </a>
+      <div class="nav-links">
+        <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+          <span>📊</span> Dashboard
+        </a>
+        <a href="{{ url_for('new_scan') }}" class="nav-link {% if request.endpoint == 'new_scan' %}active{% endif %}">
+          <span>📷</span> New Scan
+        </a>
+        <a href="{{ url_for('repository') }}" class="nav-link {% if request.endpoint == 'repository' %}active{% endif %}">
+          <span>🗄️</span> Repository
+        </a>
+      </div>
+    </div>
+    <div class="nav-right">
+      <span class="user-chip">👤 {{ current_user.username }} ({{ current_user.role|capitalize }})</span>
+      <a href="{{ url_for('logout') }}" class="nav-logout">Sign out</a>
+    </div>
+  </nav>
+  {% endif %}
+
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">
+            <span>{% if category == 'error' %}⚠️{% else %}✓{% endif %}</span>
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer style="margin-top: auto; padding: 28px 20px; text-align: center; font-size: 12.5px; color: var(--ink-muted); border-top: 1px solid var(--card-border);">
+    <div style="font-weight: 600; margin-bottom: 4px;">Legal Metrology (Packaged Commodities) Rules, 2011 · Automated Inspection System</div>
+    <div>Powered by PaddleOCR Deep Learning Engine · RAG Knowledge Retrieval Vector Store · Supabase Database</div>
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>
