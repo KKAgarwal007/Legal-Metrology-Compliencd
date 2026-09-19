@@ -28,9 +28,24 @@ export async function createInspection(data: InspectionCreate): Promise<Inspecti
   return response.data
 }
 
-export async function getInspections(page = 1, limit = 10, status?: string): Promise<{ items: Inspection[]; total: number; page: number; limit: number }> {
+export async function getInspections(
+  page = 1,
+  limit = 20,
+  status?: string,
+  inspectorId?: string,
+  overallResult?: string,
+  search?: string
+): Promise<{ items: Inspection[]; total: number; page: number; limit: number }> {
   const response = await api.get('/inspections', {
-    params: { page, limit, status },
+    params: {
+      page,
+      limit,
+      page_size: limit,
+      status,
+      inspector_id: inspectorId,
+      overall_result: overallResult,
+      search,
+    },
   })
   return response.data
 }

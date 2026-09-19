@@ -340,6 +340,16 @@ class RAGSearchResponse(BaseModel):
     total: int
 
 
+# ── Dashboard ──────────────────────────────────────────────────────────────────
+
+class DashboardStats(BaseModel):
+    total_inspections: int
+    compliant: int
+    review_required: int
+    violations: int
+    recent_inspections: List[InspectionResponse]
+
+
 # ── Rebuild forward refs ─────────────────────────────────────────────────────
 
 InspectionDetailResponse.model_rebuild()

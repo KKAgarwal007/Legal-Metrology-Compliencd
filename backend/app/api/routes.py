@@ -26,6 +26,7 @@ from app.database.session import get_db
 from app.services.ocr import ocr_service, preprocess_image, draw_ocr_boxes
 from app.services.extraction import extract_product_declarations
 from app.services.compliance import evaluate_compliance, DeterministicRuleEngine
+from app.services.compliance.rule_engine import DEFAULT_LEGAL_METROLOGY_RULES
 from app.services.rag import search_legal_regulations, ingest_pdf_regulation
 from app.services.reporting import generate_report_data, render_html_report, export_report_pdf, compute_sha256_signature
 from app.models.models import (
@@ -42,6 +43,7 @@ from app.models.models import (
 )
 from app.schemas.schemas import (
     ComplianceResultResponse,
+    DashboardStats,
     EvidenceResponse,
     HealthResponse,
     ImageUploadResponse,
@@ -90,6 +92,53 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     )
 
 
+@router.get(
+    "/dashboard/stats",
+    response_model=DashboardStats,
+    tags=["Dashboard"],
+)
+async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
+    """Get dashboard statistics including counts and recent inspections."""
+    # Total inspections
+    total_result = await db.execute(select(func.count(Inspection.id)))
+    total_inspections = total_result.scalar_one()
+
+    # Compliant (PASS)
+    compliant_result = await db.execute(
+        select(func.count(Inspection.id)).where(Inspection.overall_result == "PASS")
+    )
+    compliant = compliant_result.scalar_one()
+
+    # Review required
+    review_result = await db.execute(
+        select(func.count(Inspection.id)).where(Inspection.overall_result == "REVIEW")
+    )
+    review_required = review_result.scalar_one()
+
+    # Violations
+    violations_result = await db.execute(
+        select(func.count(Inspection.id)).where(Inspection.overall_result == "VIOLATION")
+    )
+    violations = violations_result.scalar_one()
+
+    # Recent inspections (last 5)
+    recent_query = (
+        select(Inspection)
+        .order_by(Inspection.created_at.desc())
+        .limit(5)
+    )
+    recent_result = await db.execute(recent_query)
+    recent_inspections = list(recent_result.scalars().all())
+
+    return DashboardStats(
+        total_inspections=total_inspections,
+        compliant=compliant,
+        review_required=review_required,
+        violations=violations,
+        recent_inspections=recent_inspections,
+    )
+
+
 # ===========================================================================
 # Inspections CRUD
 # ===========================================================================
@@ -126,24 +175,57 @@ async def create_inspection(
 )
 async def list_inspections(
     page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1, le=100),
+    page_size: Optional[int] = Query(None),
+    limit: Optional[int] = Query(None),
     status_filter: Optional[str] = Query(None, alias="status"),
+    verdict_filter: Optional[str] = Query(None, alias="overall_result"),
+    category: Optional[str] = Query(None),
+    inspector_id: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """List inspections with pagination and optional status filter."""
-    query = select(Inspection)
-    if status_filter:
-        query = query.where(Inspection.status == status_filter)
+    """List inspections with pagination, search, category, and inspector filters."""
+    effective_limit = limit or page_size or 10
+    effective_limit = max(1, min(100, effective_limit))
 
+    query = select(Inspection)
     total_query = select(func.count(Inspection.id))
-    if status_filter:
+
+    if status_filter and status_filter != "ALL":
+        query = query.where(Inspection.status == status_filter)
         total_query = total_query.where(Inspection.status == status_filter)
+
+    if verdict_filter and verdict_filter != "ALL":
+        query = query.where(Inspection.overall_result == verdict_filter)
+        total_query = total_query.where(Inspection.overall_result == verdict_filter)
+
+    if category and category != "ALL":
+        query = query.where(Inspection.product_category == category)
+        total_query = total_query.where(Inspection.product_category == category)
+
+    if inspector_id and inspector_id not in ("ALL", "all", "my"):
+        try:
+            insp_uuid = UUID(inspector_id)
+            query = query.where(Inspection.inspector_id == insp_uuid)
+            total_query = total_query.where(Inspection.inspector_id == insp_uuid)
+        except (ValueError, TypeError):
+            pass
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        search_clause = (
+            Inspection.title.ilike(term)
+            | Inspection.description.ilike(term)
+            | Inspection.product_category.ilike(term)
+        )
+        query = query.where(search_clause)
+        total_query = total_query.where(search_clause)
 
     total_result = await db.execute(total_query)
     total = total_result.scalar_one()
 
-    offset = (page - 1) * page_size
-    query = query.order_by(Inspection.created_at.desc()).offset(offset).limit(page_size)
+    offset = (page - 1) * effective_limit
+    query = query.order_by(Inspection.created_at.desc()).offset(offset).limit(effective_limit)
     result = await db.execute(query)
     items = result.scalars().all()
 
@@ -151,7 +233,7 @@ async def list_inspections(
         items=list(items),
         total=total,
         page=page,
-        page_size=page_size,
+        page_size=effective_limit,
     )
 
 
@@ -299,7 +381,7 @@ async def run_ocr(
         try:
             detections = ocr_service.extract_text_regions(proc_path)
         except Exception:
-            detections = ocr_service.generate_mock_ocr(proc_path)
+            detections = []
 
         # 3. Draw bounding boxes
         try:
@@ -364,10 +446,6 @@ async def run_extraction(
             "confidence_category": row.confidence_category
         })
 
-    # If no OCR rows yet, generate a fallback set based on demo/sample packaging
-    if not ocr_items:
-        ocr_items = ocr_service.generate_mock_ocr("sample_product.jpg")
-
     # 2. Run extraction
     extraction_data = extract_product_declarations(
         ocr_items=ocr_items,
@@ -420,11 +498,12 @@ async def run_extraction(
             except (ValueError, TypeError):
                 pass
 
+        field_name_val = field_dict.get("field_name") or field_dict.get("field") or ""
         new_field = ProductField(
             id=uuid.uuid4(),
             product_id=product.id,
-            field_name=field_dict.get("field", ""),
-            canonical_name=field_dict.get("canonical_name", field_dict.get("field", "")),
+            field_name=field_name_val,
+            canonical_name=field_dict.get("canonical_name", field_name_val),
             raw_value=field_dict.get("raw_value"),
             normalized_value=str(field_dict.get("normalized_value")) if field_dict.get("normalized_value") is not None else None,
             unit=field_dict.get("unit"),
@@ -480,6 +559,27 @@ async def run_compliance(
     # 2. Fetch all active compliance rules
     rules_query = select(ComplianceRule).where(ComplianceRule.is_active == True)
     rules_rows = (await db.execute(rules_query)).scalars().all()
+
+    # If no compliance rules seeded in database yet, auto-seed standard statutory rules
+    if not rules_rows:
+        for r_def in DEFAULT_LEGAL_METROLOGY_RULES:
+            rule_record = ComplianceRule(
+                id=uuid.uuid4(),
+                rule_id=r_def["rule_id"],
+                field=r_def["field"],
+                canonical_field=r_def.get("canonical_field", r_def["field"]),
+                requirement_type=r_def.get("requirement_type", "required"),
+                requirement_value=r_def.get("requirement_value"),
+                description=r_def.get("description", ""),
+                source_document=r_def.get("source_document", "Legal Metrology (Packaged Commodities) Rules, 2011"),
+                source_rule=r_def.get("source_rule", "Rule 6"),
+                source_page=r_def.get("source_page", 1),
+                severity=r_def.get("severity", "major"),
+                is_active=True,
+            )
+            db.add(rule_record)
+        await db.flush()
+        rules_rows = (await db.execute(rules_query)).scalars().all()
 
     rules_dicts = []
     for r in rules_rows:
@@ -577,18 +677,19 @@ async def run_compliance(
         overall_statuses.append(item["status"])
 
         # Create Evidence record
-        ev_data = item.get("evidence", {})
+        ev_data = item.get("evidence") or {}
+        legal_src = item.get("legal_source") or {}
         evidence_record = Evidence(
             id=uuid.uuid4(),
             compliance_result_id=comp_res_id,
             image_id=ev_data.get("image_id"),
             bbox=ev_data.get("bbox"),
             source_text=ev_data.get("source_text"),
-            ocr_confidence=ev_data.get("ocr_confidence"),
-            legal_document=ev_data.get("legal_document"),
-            legal_rule=ev_data.get("legal_rule"),
-            legal_page=ev_data.get("legal_page"),
-            legal_text=ev_data.get("legal_text")
+            ocr_confidence=ev_data.get("confidence") or ev_data.get("ocr_confidence"),
+            legal_document=legal_src.get("document") or ev_data.get("legal_document"),
+            legal_rule=legal_src.get("rule") or ev_data.get("legal_rule"),
+            legal_page=legal_src.get("page") or ev_data.get("legal_page"),
+            legal_text=ev_data.get("legal_text") or legal_src.get("text")
         )
         db.add(evidence_record)
         created_results.append(comp_res)

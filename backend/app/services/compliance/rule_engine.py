@@ -36,6 +36,120 @@ PROHIBITED_UNITS = {
     "fl oz", "fluid ounce", "fluid ounces", "yard", "yards", "ft", "feet", "inch", "inches"
 }
 
+DEFAULT_LEGAL_METROLOGY_RULES = [
+    {
+        "rule_id": "RULE-001",
+        "field": "product_name",
+        "canonical_field": "common_or_generic_name",
+        "requirement_type": "required",
+        "description": "Every package shall bear the generic or common name of the commodity.",
+        "source_document": "Legal Metrology (Packaged Commodities) Rules, 2011",
+        "source_rule": "Rule 6(1)(a)",
+        "source_page": 6,
+        "severity": "critical",
+    },
+    {
+        "rule_id": "RULE-002",
+        "field": "net_quantity",
+        "canonical_field": "net_quantity",
+        "requirement_type": "required",
+        "description": "Every package shall bear the net quantity in standard units of weight or measure.",
+        "source_document": "Legal Metrology (Packaged Commodities) Rules, 2011",
+        "source_rule": "Rule 6(1)(b)",
+        "source_page": 6,
+        "severity": "critical",
+    },
+    {
+        "rule_id": "RULE-003",
+        "field": "net_quantity_unit",
+        "canonical_field": "net_quantity",
+        "requirement_type": "required",
+        "description": "Net quantity shall be expressed in standard metric units (g, kg, ml, l, m, cm, N).",
+        "source_document": "Legal Metrology (Packaged Commodities) Rules, 2011",
+        "source_rule": "Rule 5 & Second Schedule",
+        "source_page": 5,
+        "severity": "critical",
+    },
+    {
+        "rule_id": "RULE-004",
+        "field": "manufacturer_name",
+        "canonical_field": "manufacturer_name",
+        "requirement_type": "required",
+        "description": "Name and address of manufacturer, packer, or importer must be clearly declared.",
+        "source_document": "Legal Metrology (Packaged Commodities) Rules, 2011",
+        "source_rule": "Rule 6(1)(c)",
+        "source_page": 7,
+        "severity": "critical",
+    },
+    {
+        "rule_id": "RULE-005",
+        "field": "manufacturing_date_raw",
+        "canonical_field": "date_of_manufacture_or_packing",
+        "requirement_type": "date_valid",
+        "description": "Month and year of manufacture or pre-packing must be declared.",
+        "source_document": "Legal Metrology (Packaged Commodities) Rules, 2011",
+        "source_rule": "Rule 6(1)(d)",
+        "source_page": 8,
+        "severity": "major",
+    },
+    {
+        "rule_id": "RULE-006",
+        "field": "mrp_raw",
+        "canonical_field": "maximum_retail_price",
+        "requirement_type": "required",
+        "description": "Maximum Retail Price (MRP) must be clearly declared on the principal display panel.",
+        "source_document": "Legal Metrology (Packaged Commodities) Rules, 2011",
+        "source_rule": "Rule 6(1)(e)",
+        "source_page": 8,
+        "severity": "critical",
+    },
+    {
+        "rule_id": "RULE-007",
+        "field": "mrp_inclusive",
+        "canonical_field": "maximum_retail_price",
+        "requirement_type": "contains",
+        "requirement_value": "inclusive of all taxes",
+        "description": "Retail sale price shall explicitly state 'inclusive of all taxes'.",
+        "source_document": "Legal Metrology (Packaged Commodities) Rules, 2011",
+        "source_rule": "Rule 2(l) read with Rule 6(1)(e)",
+        "source_page": 4,
+        "severity": "major",
+    },
+    {
+        "rule_id": "RULE-008",
+        "field": "consumer_care_phone",
+        "canonical_field": "consumer_care_phone",
+        "requirement_type": "required",
+        "description": "Consumer care helpline telephone number or email for grievance redressal.",
+        "source_document": "Legal Metrology (Packaged Commodities) Rules, 2011",
+        "source_rule": "Rule 6(1)(h)",
+        "source_page": 9,
+        "severity": "major",
+    },
+    {
+        "rule_id": "RULE-009",
+        "field": "country_of_origin",
+        "canonical_field": "country_of_origin",
+        "requirement_type": "required",
+        "description": "Country of origin or manufacture shall be mentioned on the package.",
+        "source_document": "Legal Metrology (Packaged Commodities) Rules, 2011",
+        "source_rule": "Rule 6(10) / Rule 6(1)(aa)",
+        "source_page": 7,
+        "severity": "major",
+    },
+    {
+        "rule_id": "RULE-010",
+        "field": "batch_number",
+        "canonical_field": "batch_lot_code",
+        "requirement_type": "required",
+        "description": "Batch number or lot number or code mark must be declared.",
+        "source_document": "Legal Metrology (Packaged Commodities) Rules, 2011",
+        "source_rule": "Rule 6(1)(g)",
+        "source_page": 8,
+        "severity": "minor",
+    },
+]
+
 
 class DeterministicRuleEngine:
     """
@@ -336,9 +450,11 @@ def evaluate_compliance(
         if cname:
             field_lookup[cname] = f
 
+    rules_to_eval = rules if rules and len(rules) > 0 else DEFAULT_LEGAL_METROLOGY_RULES
+
     results: List[Dict[str, Any]] = []
 
-    for rule in rules:
+    for rule in rules_to_eval:
         target_field = rule.get("field", "").lower()
         canonical_target = rule.get("canonical_field", "").lower()
 
@@ -360,8 +476,10 @@ def evaluate_compliance(
         overall_result = "VIOLATION"
     elif has_review:
         overall_result = "REVIEW"
-    else:
+    elif len(results) > 0:
         overall_result = "PASS"
+    else:
+        overall_result = "REVIEW"
 
     summary_stats = {
         "total_rules_checked": len(results),

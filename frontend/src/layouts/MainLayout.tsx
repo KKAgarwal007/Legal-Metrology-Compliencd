@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   PlusCircle,
   ClipboardList,
+  UserCheck,
   BookOpen,
   Settings,
   Menu,
@@ -25,6 +26,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard },
   { label: 'New Inspection', href: '/inspections/new', icon: PlusCircle },
+  { label: 'My Inspections', href: '/inspections?tab=my', icon: UserCheck },
   { label: 'All Inspections', href: '/inspections', icon: ClipboardList },
   { label: 'Knowledge Base', href: '/regulations', icon: BookOpen },
 ]
@@ -35,9 +37,12 @@ export default function MainLayout() {
 
   const getPageTitle = () => {
     const path = location.pathname
+    const search = location.search
     if (path === '/') return 'Inspection Dashboard'
     if (path === '/inspections/new') return 'New Product Inspection'
-    if (path === '/inspections') return 'Inspections Registry'
+    if (path === '/inspections') {
+      return search.includes('tab=my') ? 'My Inspections' : 'Inspections Registry'
+    }
     if (path.includes('/processing')) return 'Inspection Pipeline Processing'
     if (path.startsWith('/inspections/')) return 'Inspection Review & Evidence'
     if (path === '/regulations') return 'Legal Knowledge Base & Regulations'
@@ -82,10 +87,16 @@ export default function MainLayout() {
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon
-            const isActive =
-              item.href === '/'
-                ? location.pathname === '/'
-                : location.pathname.startsWith(item.href)
+            let isActive = false
+            if (item.href === '/') {
+              isActive = location.pathname === '/'
+            } else if (item.href === '/inspections?tab=my') {
+              isActive = location.pathname === '/inspections' && location.search.includes('tab=my')
+            } else if (item.href === '/inspections') {
+              isActive = location.pathname === '/inspections' && !location.search.includes('tab=my')
+            } else {
+              isActive = location.pathname.startsWith(item.href)
+            }
 
             return (
               <Link

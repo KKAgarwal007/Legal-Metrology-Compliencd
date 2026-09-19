@@ -12,7 +12,8 @@ import {
   Clock,
   Scan,
   ShieldCheck,
-  Search,
+  Inbox,
+  Loader2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,74 +26,43 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { DashboardStats, Inspection } from '@/types'
+import type { DashboardStats } from '@/types'
 import { getDashboardStats } from '@/services/api'
 
-// Fallback demo data for initial load/offline presentation
-const fallbackStats: DashboardStats = {
-  total_inspections: 24,
-  compliant: 14,
-  review_required: 7,
-  violations: 3,
-  recent_inspections: [
-    {
-      id: 'insp-001',
-      title: 'Britannia Good Day Butter Cookies 100g',
-      product_category: 'Food / Biscuits',
-      status: 'completed',
-      overall_result: 'PASS',
-      created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-    },
-    {
-      id: 'insp-002',
-      title: 'Dabur Honey 250g Jar',
-      product_category: 'Food / Sweeteners',
-      status: 'completed',
-      overall_result: 'REVIEW',
-      created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
-    },
-    {
-      id: 'insp-003',
-      title: 'Nivea Soft Moisturizer 50ml',
-      product_category: 'Cosmetics',
-      status: 'completed',
-      overall_result: 'VIOLATION',
-      created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-    },
-    {
-      id: 'insp-004',
-      title: 'Tata Salt Vacuum Evaporated 1kg',
-      product_category: 'Food / Spices',
-      status: 'completed',
-      overall_result: 'PASS',
-      created_at: new Date(Date.now() - 3600000 * 48).toISOString(),
-    },
-    {
-      id: 'insp-005',
-      title: 'Amul Pure Ghee 1L Tin',
-      product_category: 'Dairy',
-      status: 'completed',
-      overall_result: 'REVIEW',
-      created_at: new Date(Date.now() - 3600000 * 72).toISOString(),
-    },
-  ],
-}
-
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats>(fallbackStats)
-  const [loading, setLoading] = useState(false)
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let isMounted = true
     async function loadStats() {
+      setLoading(true)
       try {
         const data = await getDashboardStats()
-        setStats(data)
+        if (isMounted) {
+          setStats(data)
+        }
       } catch (err) {
-        // use fallback data if API not responding yet
-        console.info('Using fallback stats for presentation')
+        console.warn('Backend stats not available, using default view:', err)
+        if (isMounted) {
+          setStats({
+            total_inspections: 0,
+            compliant: 0,
+            review_required: 0,
+            violations: 0,
+            recent_inspections: [],
+          })
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
     loadStats()
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const getResultBadge = (result?: string | null) => {
@@ -108,10 +78,18 @@ export default function DashboardPage() {
     }
   }
 
+  const currentStats = stats || {
+    total_inspections: 0,
+    compliant: 0,
+    review_required: 0,
+    violations: 0,
+    recent_inspections: [],
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Top Banner */}
-      <div className="bg-linear-to-r from-[#1e3a5f] to-[#2c5282] rounded-xl p-6 text-white shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="bg-gradient-to-r from-[#1e3a5f] to-[#2c5282] rounded-xl p-6 text-white shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <div className="inline-flex items-center gap-2 bg-blue-400/20 px-3 py-1 rounded-full text-xs font-semibold text-blue-200 mb-2">
             <ShieldCheck className="w-4 h-4" /> Legal Metrology (Packaged Commodities) Rules, 2011
@@ -144,10 +122,12 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-slate-800">{stats.total_inspections}</div>
+            <div className="text-3xl font-bold text-slate-800">
+              {loading ? <Loader2 className="w-6 h-6 animate-spin text-slate-400" /> : currentStats.total_inspections}
+            </div>
             <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
               <TrendingUp className="w-3 h-3 text-emerald-600" />
-              <span>Scanned under LM(PC) Rules</span>
+              <span>Live records in system</span>
             </p>
           </CardContent>
         </Card>
@@ -162,9 +142,13 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-emerald-700">{stats.compliant}</div>
+            <div className="text-3xl font-bold text-emerald-700">
+              {loading ? <Loader2 className="w-6 h-6 animate-spin text-emerald-400" /> : currentStats.compliant}
+            </div>
             <p className="text-xs text-slate-500 mt-1">
-              {Math.round((stats.compliant / (stats.total_inspections || 1)) * 100)}% compliance rate
+              {currentStats.total_inspections > 0
+                ? `${Math.round((currentStats.compliant / currentStats.total_inspections) * 100)}% compliance rate`
+                : 'No inspection records yet'}
             </p>
           </CardContent>
         </Card>
@@ -179,9 +163,11 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-amber-700">{stats.review_required}</div>
+            <div className="text-3xl font-bold text-amber-700">
+              {loading ? <Loader2 className="w-6 h-6 animate-spin text-amber-400" /> : currentStats.review_required}
+            </div>
             <p className="text-xs text-slate-500 mt-1">
-              Unclear/ambiguous declaration evidence
+              Missing or ambiguous declarations
             </p>
           </CardContent>
         </Card>
@@ -196,9 +182,11 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-red-700">{stats.violations}</div>
+            <div className="text-3xl font-bold text-red-700">
+              {loading ? <Loader2 className="w-6 h-6 animate-spin text-red-400" /> : currentStats.violations}
+            </div>
             <p className="text-xs text-slate-500 mt-1">
-              Non-compliance identified for notice
+              Statutory non-compliance identified
             </p>
           </CardContent>
         </Card>
@@ -225,8 +213,8 @@ export default function DashboardPage() {
               { rule: 'Rule 6(1)(c)', name: 'Net Quantity in standard metric units' },
               { rule: 'Rule 6(1)(d)', name: 'Month & Year of Manufacture/Packing' },
               { rule: 'Rule 6(1)(e)', name: 'Maximum Retail Price (MRP incl. taxes)' },
-              { rule: 'Rule 6(1)(n)', name: 'Consumer Care Contact Details' },
-              { rule: 'Rule 9', name: 'Minimum Font Size based on Area' },
+              { rule: 'Rule 6(1)(h)', name: 'Consumer Care Contact Details' },
+              { rule: 'Rule 5 / Sched. 2', name: 'Standard Metric Units of Weight/Measure' },
             ].map((item, idx) => (
               <div key={idx} className="flex items-center justify-between p-2 rounded-md bg-slate-50 border border-slate-100 text-xs">
                 <span className="font-semibold text-slate-800">{item.rule}</span>
@@ -244,57 +232,84 @@ export default function DashboardPage() {
               <CardDescription>Live log of scanned packaged commodities</CardDescription>
             </div>
             <Link to="/inspections">
-              <Button variant="outline" size="sm" className="gap-1 text-xs">
-                View All <ArrowRight className="w-3 h-3" />
+              <Button variant="outline" size="sm" className="gap-1 text-xs cursor-pointer">
+                View Registry <ArrowRight className="w-3 h-3" />
               </Button>
             </Link>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product / Title</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Result</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {stats.recent_inspections.map((insp) => (
-                  <TableRow key={insp.id}>
-                    <TableCell className="font-medium text-slate-900">
-                      <div className="flex items-center gap-2">
-                        <Scan className="w-4 h-4 text-slate-400" />
-                        <div>
-                          <p className="leading-tight">{insp.title}</p>
-                          <span className="text-[10px] text-slate-400 font-mono">{insp.id}</span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-600">
-                      {insp.product_category || 'General'}
-                    </TableCell>
-                    <TableCell>{getResultBadge(insp.overall_result)}</TableCell>
-                    <TableCell className="text-xs text-slate-500">
-                      {new Date(insp.created_at).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link to={`/inspections/${insp.id}`}>
-                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-blue-600 hover:text-blue-800">
-                          Inspect
-                        </Button>
-                      </Link>
-                    </TableCell>
+            {loading ? (
+              <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                <span className="text-xs">Loading inspection records...</span>
+              </div>
+            ) : currentStats.recent_inspections.length === 0 ? (
+              <div className="py-12 flex flex-col items-center justify-center text-slate-500 gap-3">
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                  <Inbox className="w-6 h-6" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-slate-700">No inspections recorded yet</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Perform a new inspection to run OCR analysis and statutory compliance checks.
+                  </p>
+                </div>
+                <Link to="/inspections/new">
+                  <Button size="sm" className="bg-[#1e3a5f] hover:bg-[#153e75] text-white mt-1 cursor-pointer">
+                    <PlusCircle className="w-4 h-4 mr-1.5" />
+                    Start New Inspection
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product / Commodity</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Legal Verdict</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {currentStats.recent_inspections.map((insp) => (
+                    <TableRow key={insp.id}>
+                      <TableCell className="font-medium text-slate-900">
+                        <div className="flex items-center gap-2">
+                          <Scan className="w-4 h-4 text-slate-400 shrink-0" />
+                          <div>
+                            <p className="leading-tight text-xs font-semibold">{insp.title}</p>
+                            <span className="text-[10px] text-slate-400 font-mono">{insp.id}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-600">
+                        {insp.product_category || 'Packaged Commodity'}
+                      </TableCell>
+                      <TableCell>{getResultBadge(insp.overall_result)}</TableCell>
+                      <TableCell className="text-xs text-slate-500">
+                        {insp.created_at
+                          ? new Date(insp.created_at).toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Link to={`/inspections/${insp.id}`}>
+                          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-blue-600 hover:text-blue-800 cursor-pointer">
+                            Inspect
+                          </Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -295,7 +295,13 @@ class ComplianceResult(Base):
     # Relationships
     inspection = relationship("Inspection", back_populates="compliance_results")
     rule = relationship("ComplianceRule", back_populates="compliance_results")
-    evidence = relationship("Evidence", foreign_keys=[evidence_id], back_populates="compliance_result")
+    evidence = relationship(
+        "Evidence",
+        foreign_keys="[Evidence.compliance_result_id]",
+        back_populates="compliance_result",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index("ix_compliance_results_status", "status"),

@@ -207,7 +207,7 @@ class OCRService:
         ]
 
     def extract_text_regions(self, image_path: str) -> List[Dict[str, Any]]:
-        """Extract all text regions using PaddleOCR with Tesseract and mock fallback."""
+        """Extract all text regions using PaddleOCR with Tesseract fallback."""
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"Image not found at path: {image_path}")
 
@@ -217,7 +217,7 @@ class OCRService:
         if engine_preference == "paddleocr" and HAS_PADDLE:
             try:
                 results = self.run_paddle_ocr(image_path)
-                if results:
+                if results is not None:
                     return results
             except Exception as e:
                 logger.warning(f"PaddleOCR execution failed: {e}. Falling back to Tesseract.")
@@ -226,14 +226,14 @@ class OCRService:
         if HAS_TESSERACT:
             try:
                 results = self.run_tesseract_ocr(image_path)
-                if results:
+                if results is not None:
                     return results
             except Exception as e:
-                logger.warning(f"Tesseract execution failed: {e}. Falling back to mock OCR.")
+                logger.warning(f"Tesseract execution failed: {e}.")
 
-        # 3. Fallback: Mock OCR (ensures continuous pipeline execution without hard hardware/library failures)
-        logger.info("Using mock OCR extraction generator.")
-        return self.generate_mock_ocr(image_path)
+        # If no OCR engine succeeded or no text found, return empty list of detections
+        logger.info(f"No OCR engine available or no text detected for {image_path}")
+        return []
 
 
 # Singleton instance
